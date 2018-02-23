@@ -1,0 +1,189 @@
+#!/bin/bash
+
+#############################VARIABLES#####################
+##Sets variable to input
+##Sets the remove path to be a constant path that has a user variable
+removePath="$HOME/$user""project"
+
+
+user=`whoami`
+currentpath=$PWD
+trashCan=$HOME/deleted
+restore=$HOME/.restore.info
+getOpsStatus="0"
+
+
+###Checks if the directory exists. If not one is created.
+function deleteDirectoryCheck(){
+	if [ ! -d $trashCan ]
+	then
+		mkdir $HOME/deleted
+	fi
+
+}
+
+
+
+
+
+
+###Checks to see if a file exists, that the parameter is not blank, that it is not the remove script and that it is not a directory.
+
+function fileExistCheck(){
+	if [ -z "$fileName" ]
+		then
+			echo "rm: missing operand"
+			false
+	elif [ -d "$fileName"  ]
+		then
+			echo "rm: cannot remove '${fileName}': Is a directory"
+			exit 3
+	elif  [ -f "$fileName" ]
+		then
+			 true
+	else
+		echo "rm: cannot remove '${fileName}': No such file or directiory"
+		exit 4
+	fi
+}
+
+#The removeFile function first passes the fileExistCheck function to see if it returns true. If it does it will check if delete directory exists, and then it will  move the file to the 
+
+
+function restoreFile(){
+	if [ ! -f $restore  ]
+		then
+			touch $HOME/.restore.info
+	fi
+
+}
+
+#########function for setting variables which will be used in the removescripts
+
+function fileSet(){
+	inodeNumber=$(stat -c %i $i)
+	baseName=$(echo "$(basename $i)_$inodeNumber")
+	absolutePath=$(readlink -m $i)
+
+}
+
+function pathPusher(){
+	echo "$baseName:$absolutePath" >> $restore
+}
+
+
+###Uses functions to check if there is a restore file and deleted file. Then set file variables. Then push path to .restore. Then check for conditional to see what to do.
+
+removeFile(){
+	restricted=`stat -c %i remove`
+		if  fileExistCheck $fileName
+			then
+				restoreFile
+				deleteDirectoryCheck
+				fileSet
+				pathPusher
+				if [  $restricted  -a  $fileName = "remove" ]
+					then
+					echo "remove: cannot remove '${fileName}': It is required"
+				elif [ $restricted -a $fileName = "restore" ]
+					then
+					echo "remove: cannot remove '${fileName}': It is required"
+				else
+					mv $fileName $trashCan/$baseName
+
+				fi
+
+		fi
+}
+
+
+#Get operations for what you do, sets variable to 1,2,3 or stays at zero if nothing provided.
+
+while getopts vi opt
+	do
+		case $opt in
+
+			v) getOpsStatus=1 ;;
+			i) getOpsStatus=2 ;;
+			vi) getOpsStatus=3 ;;
+			iv) getOpsStatus=3 ;;
+		esac
+	done
+
+shift $(($OPTIND - 1))
+
+
+# a bunch of similar yet slightly different scripts for if getopts was chosen
+
+function nScript(){
+	for i in "$@" 
+	do
+		fileName=`echo $i`
+		if [  -f $fileName  ]
+			then
+				removeFile
+		fi
+	done 	
+}
+
+
+
+
+function vScript(){
+	for i in "$@" 
+	do
+		fileName=`echo $i`
+		if [  -f $fileName  ]
+			then
+				removeFile
+				echo "removed '$fileName'"
+		fi
+	done 	
+}
+
+
+function iScript(){
+	for i in "$@" 
+		do
+			fileName=`echo $i`
+			if [  -f $fileName  ]
+				then
+					read -p "remove: remove file '$fileName'? " y
+					if [[ $y =~ ^([yY][eE][sS]|[yY])+$ ]]
+						then
+							removeFile
+					fi
+			fi
+	done 	
+}
+
+
+function mScript(){
+	for i in "$@" 
+		do
+			fileName=`echo $i`
+			if [  -f $fileName  ]
+				then
+					read -p "remove: remove file '$fileName'? " y
+					if [[ $y =~ ^([yY][eE][sS]|[yY])+$ ]]
+						then
+							removeFile
+							echo "removed '$fileName'"
+					fi
+			fi
+	done 	
+}
+
+
+
+#Runs everything
+
+case $getOpsStatus in
+	
+	0) nScript $@ ;;
+	1) vScript $@ ;;
+	
+	2) iScript $@ ;;
+
+	3) mScript $@ ;;
+esac
